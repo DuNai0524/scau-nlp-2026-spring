@@ -174,8 +174,8 @@ def run_train(config: dict[str, Any] | None = None):
     ) = prepare_data(config)
 
     print(f"\nTraining with: {config}")
-    epochs = max(config["best_epoch"], 60)
-    patience = 12
+    epochs = 2000 # max(config["best_epoch"], 60)
+    patience = 100000
 
     model, info = train_model(
         X_train,
