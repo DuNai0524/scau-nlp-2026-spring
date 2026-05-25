@@ -1,0 +1,13 @@
+[project]
+name = "scau-nlp-2026-spring"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.0",
+    "scikit-learn>=1.5",
+    "jieba>=0.42",
+    "tqdm>=4.66",
+]

@@ -1,0 +1,20 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+
+# Data files
+homework1/data/*.csv
+homework1/results/
+homework1/submission.csv
+
+# IDE
+.idea/
+.vscode/
+*.swp
