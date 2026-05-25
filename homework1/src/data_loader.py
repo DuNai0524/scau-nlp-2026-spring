@@ -24,6 +24,8 @@ def load_csv(path: str) -> pd.DataFrame:
 def clean_text(text: str) -> str:
     """Clean text: remove special characters, normalize whitespace."""
     text = str(text)
+    # sentence_sep uses [SEP] markers between utterances; drop them before tokenization.
+    text = re.sub(r"\[sep\]", " ", text, flags=re.IGNORECASE)
     text = re.sub(r"[^一-龥a-zA-Z0-9]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
