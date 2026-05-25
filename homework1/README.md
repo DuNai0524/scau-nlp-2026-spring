@@ -50,16 +50,21 @@ python main.py train
 
 ### 3. Predict
 
-默认按 `train/dev` 划分训练并生成 `submission.csv`：
+默认按 `train/dev` 划分训练并生成 `submission.csv`。提交文件包含两列：
+
+- `ID`：与 `kaggle_test.csv` 中的 `ID` 一一对应
+- `c_numerical`：模型预测的意图类别数值编码
+
+```csv
+ID,c_numerical
+test_00000,0
+test_00001,3
+```
+
+常规生成命令：
 
 ```bash
 python main.py predict
-```
-
-如果需要在选定最优配置后使用 `train + dev` 重新训练，再对测试集预测：
-
-```bash
-python main.py predict --train-on-all
 ```
 
 ### 4. Compare Features

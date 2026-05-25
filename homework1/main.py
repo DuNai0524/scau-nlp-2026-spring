@@ -3,7 +3,7 @@
 Usage:
     python main.py search
     python main.py train
-    python main.py predict --train-on-all
+    python main.py predict
     python main.py compare_features
 """
 
@@ -43,7 +43,7 @@ def normalize_config(config: dict[str, Any] | None) -> dict[str, Any]:
     merged["lr"] = float(merged["lr"])
     merged["l2"] = float(merged.get("l2", 0.0))
     merged["batch_size"] = int(merged.get("batch_size", 32))
-    merged["best_epoch"] = int(merged.get("best_epoch", 80))
+    merged["best_epoch"] = int(merged.get("best_epoch", 100))
     merged["sublinear_tf"] = bool(merged.get("sublinear_tf", False))
     return merged
 
@@ -65,30 +65,29 @@ def load_tokenized_splits():
     return train_df, dev_df, test_df, train_texts, dev_texts, test_texts
 
 
-def prepare_data(config: dict[str, Any], train_on_all: bool = False):
+def build_label_to_c_numerical(train_df, dev_df) -> dict[str, int]:
+    """Build a stable mapping from label text to the required numeric code."""
+    label_df = (
+        train_df[["label_raw", "c_numerical"]]
+        .drop_duplicates()
+        .sort_values("c_numerical")
+    )
+    dev_label_df = dev_df[["label_raw", "c_numerical"]].drop_duplicates()
+    combined = (
+        label_df.merge(dev_label_df, on=["label_raw", "c_numerical"], how="outer")
+        .sort_values("c_numerical")
+    )
+    return dict(zip(combined["label_raw"], combined["c_numerical"], strict=False))
+
+
+def prepare_data(config: dict[str, Any]):
     """Build feature matrices from the selected feature configuration."""
     config = normalize_config(config)
     train_df, dev_df, test_df, train_texts, dev_texts, test_texts = load_tokenized_splits()
+    label_to_c_numerical = build_label_to_c_numerical(train_df, dev_df)
 
     label_encoder = LabelEncoder()
     label_encoder.fit(train_df["label_raw"].tolist())
-
-    if train_on_all:
-        combined_texts = train_texts + dev_texts
-        combined_labels = train_df["label_raw"].tolist() + dev_df["label_raw"].tolist()
-        y_train = label_encoder.transform(combined_labels)
-        X_train, X_test, _, extractor = build_feature_matrices(
-            combined_texts,
-            test_texts,
-            None,
-            config,
-        )
-        print(
-            f"Extracting features ({config['feature_method']}, train+dev)..."
-        )
-        print(f"  Vocabulary size: {extractor.vocab_size}")
-        print(f"  Train shape: {X_train.shape} | Test shape: {X_test.shape}")
-        return X_train, y_train, None, None, X_test, test_df, label_encoder, extractor
 
     y_train = label_encoder.transform(train_df["label_raw"].tolist())
     y_dev = label_encoder.transform(dev_df["label_raw"].tolist())
@@ -105,7 +104,17 @@ def prepare_data(config: dict[str, Any], train_on_all: bool = False):
     print(
         f"  Train shape: {X_train.shape} | Dev shape: {X_dev.shape} | Test shape: {X_test.shape}"
     )
-    return X_train, y_train, X_dev, y_dev, X_test, test_df, label_encoder, extractor
+    return (
+        X_train,
+        y_train,
+        X_dev,
+        y_dev,
+        X_test,
+        test_df,
+        label_encoder,
+        extractor,
+        label_to_c_numerical,
+    )
 
 
 def load_best_config() -> dict[str, Any]:
@@ -149,17 +158,24 @@ def run_search():
     print(f"\nBest config saved to {RESULTS_DIR}/best_config.json")
 
 
-def run_train(config: dict[str, Any] | None = None, train_on_all: bool = False):
+def run_train(config: dict[str, Any] | None = None):
     """Train the classifier and save model parameters."""
     config = normalize_config(config or load_best_config())
-    X_train, y_train, X_dev, y_dev, X_test, test_df, label_encoder, _ = prepare_data(
-        config,
-        train_on_all=train_on_all,
-    )
+    (
+        X_train,
+        y_train,
+        X_dev,
+        y_dev,
+        X_test,
+        test_df,
+        label_encoder,
+        _,
+        label_to_c_numerical,
+    ) = prepare_data(config)
 
     print(f"\nTraining with: {config}")
-    epochs = config["best_epoch"] if train_on_all else max(config["best_epoch"], 60)
-    patience = 12 if not train_on_all else epochs + 1
+    epochs = max(config["best_epoch"], 60)
+    patience = 12
 
     model, info = train_model(
         X_train,
@@ -177,10 +193,7 @@ def run_train(config: dict[str, Any] | None = None, train_on_all: bool = False):
         verbose=True,
     )
 
-    if info["best_val_acc"] is not None:
-        print(f"\nFinal validation accuracy: {info['best_val_acc']:.4f}")
-    else:
-        print(f"\nFinal training accuracy (train+dev): {info['final_train_acc']:.4f}")
+    print(f"\nFinal validation accuracy: {info['best_val_acc']:.4f}")
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
     params = {k: v.tolist() for k, v in model.get_params().items()}
@@ -188,21 +201,27 @@ def run_train(config: dict[str, Any] | None = None, train_on_all: bool = False):
         "input_dim": X_train.shape[1],
         "num_classes": label_encoder.num_classes,
         "config": config,
-        "train_on_all": train_on_all,
     }
     with open(os.path.join(RESULTS_DIR, "model_params.json"), "w") as f:
         json.dump(params, f)
 
-    return model, label_encoder, X_test, test_df
+    return model, label_encoder, label_to_c_numerical, X_test, test_df
 
 
-def run_predict(train_on_all: bool = False):
+def run_predict():
     """Generate submission CSV."""
     config = load_best_config()
-    model, label_encoder, X_test, test_df = run_train(config, train_on_all=train_on_all)
+    model, label_encoder, label_to_c_numerical, X_test, test_df = run_train(config)
 
     output_path = os.path.join(os.path.dirname(__file__), "submission.csv")
-    predict_and_save(model, X_test, test_df, label_encoder, output_path)
+    predict_and_save(
+        model,
+        X_test,
+        test_df,
+        label_encoder,
+        label_to_c_numerical,
+        output_path,
+    )
 
 
 def run_compare_features():
@@ -234,7 +253,7 @@ def run_compare_features():
         print(f"Feature config: {feature_config}")
         print(f"{'─' * 40}")
 
-        X_train, y_train, X_dev, y_dev, _, _, label_encoder, _ = prepare_data(config)
+        X_train, y_train, X_dev, y_dev, _, _, label_encoder, _, _ = prepare_data(config)
         _, info = train_model(
             X_train,
             y_train,
@@ -260,19 +279,14 @@ def main():
         choices=["search", "train", "predict", "compare_features"],
         help="Operation mode",
     )
-    parser.add_argument(
-        "--train-on-all",
-        action="store_true",
-        help="When used with predict/train, retrain on train+dev using the selected config.",
-    )
     args = parser.parse_args()
 
     if args.mode == "search":
         run_search()
     elif args.mode == "train":
-        run_train(train_on_all=args.train_on_all)
+        run_train()
     elif args.mode == "predict":
-        run_predict(train_on_all=args.train_on_all)
+        run_predict()
     elif args.mode == "compare_features":
         run_compare_features()
 
