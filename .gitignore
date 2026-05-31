@@ -13,6 +13,9 @@ build/
 homework1/data/*.csv
 homework1/results/
 homework1/submission.csv
+homework2/data/
+homework2/results/
+homework2/submission.csv
 
 # IDE
 .idea/
@@ -26,3 +29,5 @@ homework1/submission.csv
 
 .superpowers/
 outputs/
+
+.playwright-mcp/

@@ -20,9 +20,9 @@ from .data_loader import (
 from .model import DADGNNModel
 
 DEFAULT_CONFIG = {
-    "embed_dim": 300,
-    "num_hidden": 64,
-    "num_layers": 5,
+    "embed_dim": 200,
+    "num_hidden": 128,
+    "num_layers": 3,
     "num_heads": 2,
     "k": 5,
     "alpha": 0.5,
@@ -31,9 +31,10 @@ DEFAULT_CONFIG = {
     "dropout": 0.5,
     "learning_rate": 1e-3,
     "weight_decay": 1e-6,
-    "batch_size": 64,
-    "num_train_epochs": 100,
-    "early_stop_patience": 10,
+    "batch_size": 32,
+    "num_train_epochs": 200,
+    "early_stop_patience": 20,
+    "freeze_embeddings": False,
     "seed": 42,
 }
 
@@ -113,9 +114,17 @@ def train_and_save(
     train_dataset = GraphTextDataset(train_doc_ids, train_labels)
     dev_dataset = GraphTextDataset(dev_doc_ids, dev_labels)
 
-    # Load embeddings
-    embed_path = os.path.join(os.path.dirname(results_dir), "data", "sgns.merge.word")
+    # Load embeddings — prefer Tencent (200d, 140k vocab, 64% coverage), fallback to sgns.merge.word
+    data_dir = os.path.join(os.path.dirname(results_dir), "data")
+    embed_path = os.path.join(data_dir, "Tencent_AILab_ChineseEmbedding.bin")
+    if not os.path.exists(embed_path):
+        embed_path = os.path.join(data_dir, "sgns.merge.word")
     embeddings = load_chinese_embeddings(embed_path, word2id, config["embed_dim"])
+    # Update embed_dim if the loaded embeddings have a different dimension
+    actual_embed_dim = embeddings.shape[1]
+    if actual_embed_dim != config["embed_dim"]:
+        print(f"  Adjusting embed_dim from {config['embed_dim']} to {actual_embed_dim}")
+        config["embed_dim"] = actual_embed_dim
     embeddings_tensor = torch.tensor(embeddings, dtype=torch.float32)
 
     # Build model
@@ -134,6 +143,13 @@ def train_and_save(
         dropout=config["dropout"],
         pretrained_embeddings=embeddings_tensor,
     ).to(device)
+
+    # Optionally freeze embeddings
+    if config.get("freeze_embeddings", False):
+        model.embedding.weight.requires_grad = False
+        print("  Embeddings frozen (not trainable)")
+    else:
+        print("  Embeddings trainable (fine-tuning)")
 
     # Optimizer and loss
     optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])

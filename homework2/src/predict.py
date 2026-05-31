@@ -46,15 +46,19 @@ def predict_and_save(
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Load embeddings
-    embed_path = os.path.join(os.path.dirname(results_dir), "data", "sgns.merge.word")
-    embeddings = load_chinese_embeddings(embed_path, word2id, config["embed_dim"])
+    # Load embeddings — match training: prefer Tencent, fallback to sgns
+    data_dir = os.path.join(os.path.dirname(results_dir), "data")
+    embed_path = os.path.join(data_dir, "Tencent_AILab_ChineseEmbedding.bin")
+    if not os.path.exists(embed_path):
+        embed_path = os.path.join(data_dir, "sgns.merge.word")
+    embeddings = load_chinese_embeddings(embed_path, word2id, int(config["embed_dim"]))
+    actual_embed_dim = embeddings.shape[1]
     embeddings_tensor = torch.tensor(embeddings, dtype=torch.float32)
 
     # Build model
     model = DADGNNModel(
         vocab_size=len(word2id),
-        embed_dim=int(config["embed_dim"]),
+        embed_dim=actual_embed_dim,
         num_hidden=int(config["num_hidden"]),
         num_classes=len(labels_in_order),
         num_layers=int(config["num_layers"]),

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SCAU NLP course (Spring 2026) homework assignments. Python 3.13, managed by **uv** (not pip).
+SCAU NLP course (Spring 2026) homework assignments. Python 3.12, managed by **uv** (not pip).
 
 ## Common Commands
 
@@ -14,9 +14,11 @@ cd homework1 && python main.py search           # Grid search hyperparameters
 cd homework1 && python main.py train            # Train with best/default config
 cd homework1 && python main.py predict          # Generate submission.csv
 cd homework1 && python main.py compare_features # Compare BoW vs N-gram vs TF-IDF
+cd homework2 && python main.py train            # Train DADGNN model
+cd homework2 && python main.py predict          # Generate submission.csv
 ```
 
-All commands run from the `homework1/` directory. Data CSVs (`train.csv`, `dev.csv`, `test.csv`) go in `homework1/data/` (gitignored). Results go in `homework1/results/` (also gitignored).
+Homework1 commands run from `homework1/`, homework2 from `homework2/`. Data CSVs are gitignored.
 
 ## Architecture (homework1)
 
@@ -31,8 +33,22 @@ Pipeline flow: `main.py` → `data_loader` → `features` → `model` → `train
 - **`src/train.py`** — Training loop with early stopping, mini-batch support, and grid search over activation × loss × optimizer × lr × dropout.
 - **`src/predict.py`** — Generates `submission.csv` from test predictions.
 
+## Architecture (homework2)
+
+SLU intent detection on Chinese text using **DADGNN** (Attention Diffusion GNN, EMNLP 2021). Replaces BERT fine-tuning with a graph neural network approach.
+
+Pipeline flow: `main.py` → `data_loader` → `graph_utils` → `model` → `train` → `predict`
+
+- **`src/data_loader.py`** — CSV loading, jieba tokenization, vocabulary building, Chinese Word2Vec embedding loading (gensim), `GraphTextDataset`.
+- **`src/graph_utils.py`** — Document-to-DGL-graph conversion: token deduplication as nodes, n-gram sliding window edges, batch graph construction.
+- **`src/model.py`** — `SingleHeadGATLayer` (k-step attention diffusion), `GATLayer` (multi-head), `GATNet` (stacked layers), `WeightAndSum` (graph readout), `DADGNNModel` (full pipeline).
+- **`src/train.py`** — Native PyTorch training loop with Adam, CrossEntropyLoss, early stopping. Builds vocab + loads embeddings + trains DADGNN.
+- **`src/predict.py`** — Loads saved model + vocab, runs batch inference, generates `submission.csv`.
+
 ## Key Design Decisions
 
-- All ML is numpy-only (no PyTorch/TensorFlow) — this is intentional for the course.
-- Grid search space: 3 activations × 2 losses × 2 optimizers × 3 learning rates × 5 dropout values = 180 combinations.
-- Default config when no `best_config.json` exists: relu + cross_entropy + adam, lr=0.01, dropout=0.1.
+- Homework1: All ML is numpy-only (no PyTorch/TensorFlow) — intentional for the course.
+- Homework2: Uses DGL + PyTorch for graph neural network. Graphs built dynamically in forward pass.
+- DGL 2.2.0 requires PyTorch <2.4 (graphbolt C++ lib compatibility). Patched `graphbolt/__init__.py` to gracefully skip missing C++ libs.
+- Chinese Word2Vec embeddings at `homework2/data/sgns.merge.word` (gitignored). Falls back to random init if absent.
+- Python version pinned to 3.12 for DGL compatibility (DGL has no cp313 wheels).

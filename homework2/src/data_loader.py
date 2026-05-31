@@ -103,24 +103,61 @@ def encode_document(tokens: list[str], word2id: dict[str, int], max_length: int)
 
 
 def load_chinese_embeddings(path: str, word2id: dict[str, int], embed_dim: int = 300) -> np.ndarray:
-    """Load Chinese Word2Vec embeddings via gensim. Uncovered words are randomly initialized."""
-    from gensim.models import KeyedVectors
+    """Load Chinese Word2Vec embeddings. Uncovered words are randomly initialized.
 
+    Supports gensim KeyedVectors (binary/text) and raw text format.
+    Auto-detects binary vs text format from file extension.
+    """
     vocab_size = len(word2id)
     embeddings = np.random.randn(vocab_size, embed_dim).astype(np.float32) * 0.1
     embeddings[PAD_ID] = np.zeros(embed_dim, dtype=np.float32)
 
     if not os.path.exists(path):
         print(f"  Embedding file not found: {path}. Using random initialization.")
+        print(f"  Run: python scripts/download_embeddings.py")
         return embeddings
 
     print(f"  Loading embeddings from: {path}")
-    kv = KeyedVectors.load(path, mmap="r") if path.endswith(".kv") else KeyedVectors.load_word2vec_format(path, binary=False)
     found = 0
-    for word, idx in word2id.items():
-        if word in kv:
-            embeddings[idx] = kv[word]
-            found += 1
+
+    try:
+        from gensim.models import KeyedVectors
+        binary = path.endswith(".bin")
+        if path.endswith(".kv"):
+            kv = KeyedVectors.load(path, mmap="r")
+        else:
+            kv = KeyedVectors.load_word2vec_format(path, binary=binary)
+
+        actual_dim = kv.vector_size
+        if actual_dim != embed_dim:
+            print(f"  Note: embedding dim ({actual_dim}) != requested dim ({embed_dim}). Using {actual_dim}.")
+
+        # Re-init with actual dim if different
+        if actual_dim != embed_dim:
+            embeddings = np.random.randn(vocab_size, actual_dim).astype(np.float32) * 0.1
+            embeddings[PAD_ID] = np.zeros(actual_dim, dtype=np.float32)
+
+        for word, idx in word2id.items():
+            if word in kv:
+                embeddings[idx] = kv[word]
+                found += 1
+    except (ValueError, UnicodeDecodeError):
+        # Fallback: parse raw text format (no header line)
+        print("  Gensim load failed, trying raw text parse...")
+        with open(path, encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                parts = line.rstrip().split(" ")
+                if len(parts) < embed_dim + 1:
+                    continue
+                word = parts[0]
+                if word in word2id:
+                    try:
+                        vec = np.array([float(x) for x in parts[1 : embed_dim + 1]], dtype=np.float32)
+                        embeddings[word2id[word]] = vec
+                        found += 1
+                    except ValueError:
+                        continue
+
     print(f"  Covered {found}/{vocab_size} words from pre-trained embeddings.")
     return embeddings
 
