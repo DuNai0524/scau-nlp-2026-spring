@@ -21,3 +21,8 @@ homework1/submission.csv
 
 # MacOS
 .DS_Store
+
+# temps
+
+.superpowers/
+outputs/

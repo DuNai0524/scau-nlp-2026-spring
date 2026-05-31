@@ -1,1 +1,1 @@
-"""Homework 2 BERT training package."""
+"""Homework 2 DADGNN training package."""

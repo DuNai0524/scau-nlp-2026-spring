@@ -1,4 +1,4 @@
-"""BERT-based SLU intent detection entry point.
+"""DADGNN-based SLU intent detection entry point.
 
 Usage:
     python main.py train
@@ -27,17 +27,16 @@ def load_splits():
 
 
 def run_train():
-    """Fine-tune BERT on the train split and evaluate on dev."""
+    """Train DADGNN on the train split and evaluate on dev."""
     train_df, dev_df, _ = load_splits()
     artifacts = train_and_save(train_df, dev_df, RESULTS_DIR)
-    print("\nTraining finished.")
-    print(f"Best checkpoint: {artifacts['best_model_checkpoint']}")
-    print(f"Saved model dir: {artifacts['model_dir']}")
-    print(f"Validation accuracy: {artifacts['eval_metrics']['eval_accuracy']:.4f}")
+    print(f"\nTraining finished.")
+    print(f"Saved model: {artifacts['model_path']}")
+    print(f"Validation accuracy: {artifacts['eval_metrics']['accuracy']:.4f}")
 
 
 def run_predict():
-    """Load the saved model artifacts and generate a submission CSV."""
+    """Load the saved DADGNN model and generate a submission CSV."""
     _, _, test_df = load_splits()
     output_path = os.path.join(os.path.dirname(__file__), "submission.csv")
     predict_and_save(
@@ -48,7 +47,7 @@ def run_predict():
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Homework 2 BERT intent classification")
+    parser = argparse.ArgumentParser(description="Homework 2 DADGNN intent classification")
     parser.add_argument("command", choices=["train", "predict"])
     return parser
 
