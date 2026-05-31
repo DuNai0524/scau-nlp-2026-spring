@@ -1,0 +1,6 @@
+{
+  "best_dev_accuracy": 0.1178125,
+  "train_samples": 162,
+  "eval_samples": 3200,
+  "total_params": 2602606
+}
