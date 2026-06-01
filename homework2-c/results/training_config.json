@@ -1,0 +1,20 @@
+{
+  "embed_dim": 200,
+  "filter_sizes": [
+    2,
+    3,
+    4,
+    5
+  ],
+  "num_filters": 64,
+  "max_length": 256,
+  "dropout": 0.5,
+  "freeze_embeddings": true,
+  "learning_rate": 0.0005,
+  "weight_decay": 0.001,
+  "label_smoothing": 0.1,
+  "batch_size": 16,
+  "num_train_epochs": 2000,
+  "early_stop_patience": 3000,
+  "seed": 42
+}

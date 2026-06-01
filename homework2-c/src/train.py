@@ -15,17 +15,17 @@ from .vocab import build_vocab, encode_document, load_chinese_embeddings
 
 DEFAULT_CONFIG = {
     "embed_dim": 200,
-    "filter_sizes": [2, 3, 4],
+    "filter_sizes": [2, 3, 4, 5],
     "num_filters": 64,
-    "max_length": 128,
+    "max_length": 256,
     "dropout": 0.5,
     "freeze_embeddings": True,
     "learning_rate": 5e-4,
     "weight_decay": 1e-3,
     "label_smoothing": 0.1,
     "batch_size": 16,
-    "num_train_epochs": 200,
-    "early_stop_patience": 30,
+    "num_train_epochs": 2000,
+    "early_stop_patience": 3000,
     "seed": 42,
 }
 

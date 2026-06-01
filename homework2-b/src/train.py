@@ -26,7 +26,7 @@ DEFAULT_CONFIG = {
     "weight_decay": 1e-3,
     "label_smoothing": 0.1,
     "batch_size": 16,
-    "num_train_epochs": 500,
+    "num_train_epochs": 1000,
     "early_stop_patience": 0,
     "seed": 42,
 }

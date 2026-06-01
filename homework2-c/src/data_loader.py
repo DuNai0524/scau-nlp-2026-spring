@@ -12,6 +12,7 @@ from torch.utils.data import Dataset
 
 PAD_TOKEN = "<PAD>"
 UNK_TOKEN = "<UNK>"
+SEP_TOKEN = "<SEP>"
 PAD_ID = 0
 UNK_ID = 1
 
@@ -61,10 +62,16 @@ STOP_WORDS = set(
 
 
 def tokenize_chinese(text: str, remove_stopwords: bool = True) -> list[str]:
-    tokens = list(jieba.cut(str(text)))
-    if remove_stopwords:
-        tokens = [t for t in tokens if t.strip() and t not in STOP_WORDS]
-    return tokens
+    segments = str(text).split("[SEP]")
+    all_tokens: list[str] = []
+    for i, seg in enumerate(segments):
+        if i > 0:
+            all_tokens.append(SEP_TOKEN)
+        tokens = list(jieba.cut(seg))
+        if remove_stopwords:
+            tokens = [t for t in tokens if t.strip() and t not in STOP_WORDS]
+        all_tokens.extend(tokens)
+    return all_tokens
 
 
 class TextDataset(Dataset):

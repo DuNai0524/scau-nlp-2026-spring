@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from typing import Any
 
 import jieba
@@ -14,6 +15,21 @@ PAD_TOKEN = "<PAD>"
 UNK_TOKEN = "<UNK>"
 PAD_ID = 0
 UNK_ID = 1
+
+STOP_WORDS = set(
+    "的 了 在 是 我 有 和 就 不 人 都 一 一个 上 也 很 到 说 要 去 你 会 着 没有 看 好 "
+    "自己 这 那 她 他 它 们 什么 吗 呢 吧 啊 呀 哦 嗯 哈 嘛 哎 唉 啦 嘞 哇 哪 这个 那个 "
+    "请 您 帮 一下 还 那个 这个 嗯 对".split()
+)
+
+
+def clean_text(text: str) -> str:
+    """Clean text: remove special characters, normalize whitespace."""
+    text = str(text)
+    text = re.sub(r"\[sep\]", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"[^一-龥a-zA-Z0-9]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 def load_csv(path: str) -> pd.DataFrame:
@@ -53,8 +69,14 @@ def build_label_metadata(train_df: pd.DataFrame, dev_df: pd.DataFrame) -> dict[s
     return {"labels_in_order": labels_in_order, "label_to_c_numerical": label_to_c_numerical}
 
 
-def tokenize_chinese(text: str) -> list[str]:
-    return list(jieba.cut(str(text)))
+def tokenize_chinese(text: str, remove_stopwords: bool = True) -> list[str]:
+    text = clean_text(text)
+    words = jieba.lcut(text)
+    if remove_stopwords:
+        words = [w for w in words if w.strip() and w not in STOP_WORDS]
+    else:
+        words = [w for w in words if w.strip()]
+    return words
 
 
 class TextDataset(Dataset):
