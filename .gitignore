@@ -31,3 +31,5 @@ homework2/submission.csv
 outputs/
 
 .playwright-mcp/
+
+*.pt
