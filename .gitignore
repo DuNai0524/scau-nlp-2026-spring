@@ -33,3 +33,5 @@ outputs/
 .playwright-mcp/
 
 *.pt
+
+*.env
