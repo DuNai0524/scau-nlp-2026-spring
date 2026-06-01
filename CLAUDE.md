@@ -16,6 +16,10 @@ cd homework1 && python main.py predict          # Generate submission.csv
 cd homework1 && python main.py compare_features # Compare BoW vs N-gram vs TF-IDF
 cd homework2 && python main.py train            # Train DADGNN model
 cd homework2 && python main.py predict          # Generate submission.csv
+cd homework3 && python main.py eval --mode zero-shot      # Evaluate zero-shot on dev set
+cd homework3 && python main.py eval --mode few-shot       # Evaluate few-shot on dev set
+cd homework3 && python main.py compare                    # Compare zero-shot vs few-shot
+cd homework3 && python main.py predict --mode few-shot    # Generate submission.csv
 ```
 
 Homework1 commands run from `homework1/`, homework2 from `homework2/`. Data CSVs are gitignored.
@@ -45,6 +49,19 @@ Pipeline flow: `main.py` → `data_loader` → `graph_utils` → `model` → `tr
 - **`src/train.py`** — Native PyTorch training loop with Adam, CrossEntropyLoss, early stopping. Builds vocab + loads embeddings + trains DADGNN.
 - **`src/predict.py`** — Loads saved model + vocab, runs batch inference, generates `submission.csv`.
 
+## Architecture (homework3)
+
+SLU intent detection on Chinese text using **LLM + Prompt engineering** (no training/fine-tuning). Uses OpenAI-compatible API to call ChatGLM or other Chinese LLMs.
+
+Pipeline flow: `main.py` → `data_loader` → `prompt_builder` → `llm_client` → `evaluator` / `predict`
+
+- **`src/data_loader.py`** — CSV loading, label mapping extraction (34 categories, 0-33), few-shot example selection (shortest per category).
+- **`src/prompt_builder.py`** — Builds zero-shot and few-shot prompts with category list, dialogue text, and output constraints.
+- **`src/llm_client.py`** — OpenAI-compatible client with provider presets (zhipu/deepseek/qwen/moonshot). Supports env var or constructor config.
+- **`src/evaluator.py`** — Regex-based output parsing, accuracy computation, per-class report.
+- **`src/eval_runner.py`** — Dev set evaluation loop with retry logic.
+- **`src/predict.py`** — Test set prediction loop, generates `submission.csv`.
+
 ## Key Design Decisions
 
 - Homework1: All ML is numpy-only (no PyTorch/TensorFlow) — intentional for the course.
@@ -52,3 +69,6 @@ Pipeline flow: `main.py` → `data_loader` → `graph_utils` → `model` → `tr
 - DGL 2.2.0 requires PyTorch <2.4 (graphbolt C++ lib compatibility). Patched `graphbolt/__init__.py` to gracefully skip missing C++ libs.
 - Chinese Word2Vec embeddings at `homework2/data/sgns.merge.word` (gitignored). Falls back to random init if absent.
 - Python version pinned to 3.12 for DGL compatibility (DGL has no cp313 wheels).
+- Homework3: Uses OpenAI-compatible API (no local model). Prompt-only, no training. Few-shot examples selected as shortest per category.
+- Homework3 data at `nlp-text-classification-experiments/`: `train_new_5shot.csv` (162 samples, 5 per class), `dev_new.csv` (3200 samples), `kaggle_test.csv` (4000 samples).
+- Homework3 env vars: `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` (or use provider preset).
