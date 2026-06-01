@@ -15,8 +15,13 @@ Usage:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
+from dotenv import load_dotenv
 from openai import OpenAI
+
+# Load .env from homework3/ directory regardless of cwd
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 # Provider presets for convenience
