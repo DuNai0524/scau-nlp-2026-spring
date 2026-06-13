@@ -35,3 +35,7 @@ outputs/
 *.pt
 
 *.env
+
+*.html
+*.doc
+*.docx
